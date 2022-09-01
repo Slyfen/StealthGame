@@ -1,10 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 public class PlayerSM : MonoBehaviour
 {
     [SerializeField] PlayerState currentState;
+    [SerializeField] LayerMask groundLayer;
+
 
     [SerializeField] float sneakingSpeed = 3;
     [SerializeField] float joggingSpeed = 5;
@@ -22,6 +25,11 @@ public class PlayerSM : MonoBehaviour
     Vector3 dirInput;
     Vector3 dirCam;
     Vector3 dirMove;
+
+    float lastSpeed;
+    float currentVelocity;
+    float finalAngle;
+    float velocityY;
 
     public enum PlayerState
     {
@@ -41,17 +49,22 @@ public class PlayerSM : MonoBehaviour
 
         currentState = PlayerState.IDLE;
         OnStateEnter();
+
     }
     
     
     void Update()
     {
+        //if(currentState != PlayerState.FALLING)
         dirInput = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
 
         MovementDirection();
 
 
         OnStateUpdate();
+
+
+
     }
 
 
@@ -64,9 +77,12 @@ public class PlayerSM : MonoBehaviour
                 animator.SetBool("IDLE", true);
                 break;
             case PlayerState.RUNNING:
+
+                lastSpeed = runningSpeed;
                 animator.SetBool("RUN", true);
                 break;
             case PlayerState.JOGGING:
+                lastSpeed = joggingSpeed;
                 animator.SetBool("JOGGING", true);
 
                 break;
@@ -74,6 +90,7 @@ public class PlayerSM : MonoBehaviour
                 animator.SetBool("FALLING", true);
                 break;
             case PlayerState.SNEAKING:
+                lastSpeed = sneakingSpeed;
                 animator.SetBool("SNEAKING", true);
                 break;
             case PlayerState.JUMPING:
@@ -84,12 +101,13 @@ public class PlayerSM : MonoBehaviour
         }
     }
 
-
-    float currentVelocity;
-    float finalAngle;
-
     void OnStateUpdate()
     {
+
+        // TO FALLING
+        if (!IsGrounded() && currentState != PlayerState.FALLING)
+            TransitionToState(PlayerState.FALLING);
+
         
 
         switch (currentState)
@@ -105,6 +123,9 @@ public class PlayerSM : MonoBehaviour
                     TransitionToState(PlayerState.RUNNING);
                 }
 
+                // TO JUMP
+                if (Input.GetKeyDown(KeyCode.Space))
+                    TransitionToState(PlayerState.JUMPING);
 
                 break;
             case PlayerState.JOGGING:
@@ -122,6 +143,10 @@ public class PlayerSM : MonoBehaviour
                     TransitionToState(PlayerState.RUNNING);
                 }
 
+                // TO JUMP
+                if (Input.GetKeyDown(KeyCode.Space))
+                    TransitionToState(PlayerState.JUMPING);
+
                 break;
             case PlayerState.RUNNING:
 
@@ -136,9 +161,22 @@ public class PlayerSM : MonoBehaviour
                 if(!Input.GetKey(KeyCode.LeftShift))
                     TransitionToState(PlayerState.JOGGING);
 
+                // TO JUMP
+                if (Input.GetKeyDown(KeyCode.Space))
+                    TransitionToState(PlayerState.JUMPING);
+
 
                 break;
             case PlayerState.FALLING:
+
+                velocityY += Physics.gravity.y* Time.deltaTime;
+
+                cc.Move(((dirMove * lastSpeed) + new Vector3(0, velocityY, 0)) * Time.deltaTime);
+
+                if (IsGrounded() && dirInput.magnitude == 0)
+                    TransitionToState(PlayerState.IDLE);
+                if (IsGrounded() && dirInput.magnitude > 0)
+                    TransitionToState(PlayerState.JOGGING);
 
                 break;
             case PlayerState.SNEAKING:
@@ -146,11 +184,18 @@ public class PlayerSM : MonoBehaviour
                 break;
             case PlayerState.JUMPING:
 
+                velocityY = Mathf.Sqrt(-2 * 5 * Physics.gravity.y);
+
+                cc.Move(((dirMove * lastSpeed) + new Vector3(0, velocityY, 0)) * Time.deltaTime);
 
                 break;
             default:
                 break;
         }
+
+
+        
+
     }
 
     private void MovementDirection()
@@ -172,6 +217,8 @@ public class PlayerSM : MonoBehaviour
             // ON RECUPERE LA DIRECTION DANS LAQUELLE DOIT BOUGER LE PERSONNAGE
             dirMove = Quaternion.Euler(0, transform.eulerAngles.y, 0) * Vector3.forward; // ROTATION TO DIRECTION
 
+
+            
         }
     }
 
@@ -191,6 +238,7 @@ public class PlayerSM : MonoBehaviour
                 break;
             case PlayerState.FALLING:
                 animator.SetBool("FALLING", false);
+                velocityY = 0;
                 break;
             case PlayerState.SNEAKING:
                 animator.SetBool("SNEAKING", false);
@@ -212,5 +260,10 @@ public class PlayerSM : MonoBehaviour
         OnStateEnter();
     }
 
+    bool IsGrounded()
+    {
+        Collider[] col = Physics.OverlapBox(transform.position, new Vector3(.3f, 0.05f, .3f), transform.rotation, groundLayer);
+        return col.Length > 0;
+    }
 
 }
