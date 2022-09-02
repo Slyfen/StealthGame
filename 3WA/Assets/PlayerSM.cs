@@ -8,7 +8,7 @@ public class PlayerSM : MonoBehaviour
     [SerializeField] PlayerState currentState;
     [SerializeField] LayerMask groundLayer;
 
-
+    [SerializeField] float jumpHeight = 1.5f;
     [SerializeField] float sneakingSpeed = 3;
     [SerializeField] float joggingSpeed = 5;
     [SerializeField] float runningSpeed = 10;
@@ -23,13 +23,15 @@ public class PlayerSM : MonoBehaviour
 
 
     Vector3 dirInput;
-    Vector3 dirCam;
     Vector3 dirMove;
 
     float lastSpeed;
     float currentVelocity;
     float finalAngle;
     float velocityY;
+    float crouch;
+    float finalCrouch;
+    float currentcrouch;
 
     public enum PlayerState
     {
@@ -58,6 +60,7 @@ public class PlayerSM : MonoBehaviour
         //if(currentState != PlayerState.FALLING)
         dirInput = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
 
+        
 
         MovementDirection();
 
@@ -68,9 +71,11 @@ public class PlayerSM : MonoBehaviour
 
     }
 
+    
 
     void OnStateEnter()
     {
+
 
         switch (currentState)
         {
@@ -102,8 +107,21 @@ public class PlayerSM : MonoBehaviour
         }
     }
 
+
+    float lastGroundPos;
     void OnStateUpdate()
     {
+
+        //if(IsGrounded())
+        //{
+        //    lastGroundPos = transform.position.y;
+        //}
+
+        //float dirFall = lastGroundPos - transform.position.y;
+
+        //if (dirFall > 3)
+        //    Debug.Log("FALL");
+
 
         // TO FALLING
         if (!IsGrounded() && currentState != PlayerState.FALLING)
@@ -114,6 +132,21 @@ public class PlayerSM : MonoBehaviour
         switch (currentState)
         {
             case PlayerState.IDLE:
+
+
+
+                if (Input.GetKey(KeyCode.LeftControl))
+                    crouch = 1;
+                else
+                    crouch = 0;
+
+                finalCrouch = Mathf.SmoothDamp(finalCrouch, crouch, ref currentcrouch, .1f);
+
+                animator.SetFloat("Crouch", finalCrouch);
+
+
+
+
                 if (dirInput.magnitude > 0 && !Input.GetKey(KeyCode.LeftShift))
                 {
                     TransitionToState(PlayerState.JOGGING);
@@ -127,6 +160,12 @@ public class PlayerSM : MonoBehaviour
                 // TO JUMP
                 if (Input.GetKeyDown(KeyCode.Space))
                     TransitionToState(PlayerState.JUMPING);
+
+                // TO SNEAK
+                if (dirInput.magnitude > 0 && Input.GetKey(KeyCode.LeftControl))
+                {
+                    TransitionToState(PlayerState.SNEAKING);
+                }
 
                 break;
             case PlayerState.JOGGING:
@@ -148,6 +187,12 @@ public class PlayerSM : MonoBehaviour
                 if (Input.GetKeyDown(KeyCode.Space))
                     TransitionToState(PlayerState.JUMPING);
 
+                // TO SNEAK
+                if (Input.GetKey(KeyCode.LeftControl))
+                {
+                    TransitionToState(PlayerState.SNEAKING);
+                }
+
                 break;
             case PlayerState.RUNNING:
 
@@ -166,11 +211,16 @@ public class PlayerSM : MonoBehaviour
                 if (Input.GetKeyDown(KeyCode.Space))
                     TransitionToState(PlayerState.JUMPING);
 
+                // TO SNEAK
+                if (Input.GetKey(KeyCode.LeftControl))
+                {
+                    TransitionToState(PlayerState.SNEAKING);
+                }
 
                 break;
             case PlayerState.FALLING:
 
-                velocityY += Physics.gravity.y* Time.deltaTime;
+                velocityY += Physics.gravity.y * Time.deltaTime;
 
                 cc.Move(((dirMove * lastSpeed) + new Vector3(0, velocityY, 0)) * Time.deltaTime);
 
@@ -182,10 +232,27 @@ public class PlayerSM : MonoBehaviour
                 break;
             case PlayerState.SNEAKING:
 
+                cc.Move(dirMove * sneakingSpeed * Time.deltaTime);
+
+                // TO IDLE
+                if (dirInput.magnitude == 0)
+                {
+                    TransitionToState(PlayerState.IDLE);
+                }
+
+                // TO JOGGING
+                if (!Input.GetKey(KeyCode.LeftControl) && !Input.GetKey(KeyCode.LeftShift))
+                    TransitionToState(PlayerState.JOGGING);
+
+                // TO SPRINT
+                if (!Input.GetKey(KeyCode.LeftControl) && Input.GetKey(KeyCode.LeftShift))
+                    TransitionToState(PlayerState.RUNNING);
+
+
                 break;
             case PlayerState.JUMPING:
 
-                velocityY = Mathf.Sqrt(-2 * 5 * Physics.gravity.y);
+                velocityY = Mathf.Sqrt(-2 * jumpHeight * Physics.gravity.y);
 
                 cc.Move(((dirMove * lastSpeed) + new Vector3(0, velocityY, 0)) * Time.deltaTime);
 
@@ -201,6 +268,7 @@ public class PlayerSM : MonoBehaviour
 
     private void MovementDirection()
     {
+        
         if (dirInput.magnitude > 0)
         {
             // CALCUL DE L'ANGLE QUE DOIT AVOIR LE PERSONNAGE
@@ -211,16 +279,22 @@ public class PlayerSM : MonoBehaviour
             // SMOOTH DU RESULTAT
             finalAngle = Mathf.SmoothDampAngle(finalAngle, angle, ref currentVelocity, .1f);
 
-
             // ON APPLIQUE LE RESULTAT AU TRANSFORM
             transform.eulerAngles = new Vector3(0, finalAngle, 0); // ON TOURNE LE PERSONNAGE
-
+            
             // ON RECUPERE LA DIRECTION DANS LAQUELLE DOIT BOUGER LE PERSONNAGE
-            dirMove = Quaternion.Euler(0, transform.eulerAngles.y, 0) * Vector3.forward; // ROTATION TO DIRECTION
+            dirMove = Quaternion.Euler(0, angle, 0) * Vector3.forward; // ROTATION TO DIRECTION
 
+        }
+
+        else
+        {
+
+            dirMove = Vector3.zero;
+        }
+        
 
             
-        }
     }
 
     void OnStateExit()
