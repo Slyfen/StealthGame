@@ -58,6 +58,7 @@ public class PlayerSM : MonoBehaviour
         //if(currentState != PlayerState.FALLING)
         dirInput = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
 
+
         MovementDirection();
 
 
