@@ -6,6 +6,7 @@ using System.Linq;
 public class PlayerSM : MonoBehaviour
 {
     [SerializeField] PlayerState currentState;
+    [SerializeField] PlayerState previousState;
     [SerializeField] LayerMask groundLayer;
 
     [SerializeField] float jumpHeight = 1.5f;
@@ -46,21 +47,21 @@ public class PlayerSM : MonoBehaviour
     void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
-        
+
         cc = GetComponent<CharacterController>();
 
         currentState = PlayerState.IDLE;
         OnStateEnter();
 
     }
-    
-    
+
+
     void Update()
     {
         //if(currentState != PlayerState.FALLING)
         dirInput = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
 
-        
+
 
         MovementDirection();
 
@@ -71,7 +72,7 @@ public class PlayerSM : MonoBehaviour
 
     }
 
-    
+
 
     void OnStateEnter()
     {
@@ -100,7 +101,13 @@ public class PlayerSM : MonoBehaviour
                 animator.SetBool("SNEAKING", true);
                 break;
             case PlayerState.JUMPING:
-                animator.SetBool("JUMPING", true);
+                if (previousState == PlayerState.IDLE)
+                    animator.SetTrigger("JUMP");
+                if (previousState == PlayerState.JOGGING)
+                    animator.SetTrigger("JOG JUMP");
+                if (previousState == PlayerState.RUNNING)
+                    animator.SetTrigger("RUN JUMP");
+
                 break;
             default:
                 break;
@@ -127,7 +134,7 @@ public class PlayerSM : MonoBehaviour
         if (!IsGrounded() && currentState != PlayerState.FALLING)
             TransitionToState(PlayerState.FALLING);
 
-        
+
 
         switch (currentState)
         {
@@ -178,7 +185,8 @@ public class PlayerSM : MonoBehaviour
                     TransitionToState(PlayerState.IDLE);
                 }
 
-                if (Input.GetKeyDown(KeyCode.LeftShift))
+                // TO RUN
+                if (Input.GetKey(KeyCode.LeftShift))
                 {
                     TransitionToState(PlayerState.RUNNING);
                 }
@@ -204,7 +212,7 @@ public class PlayerSM : MonoBehaviour
                     TransitionToState(PlayerState.IDLE);
                 }
 
-                if(!Input.GetKey(KeyCode.LeftShift))
+                if (!Input.GetKey(KeyCode.LeftShift))
                     TransitionToState(PlayerState.JOGGING);
 
                 // TO JUMP
@@ -225,9 +233,16 @@ public class PlayerSM : MonoBehaviour
                 cc.Move(((dirMove * lastSpeed) + new Vector3(0, velocityY, 0)) * Time.deltaTime);
 
                 if (IsGrounded() && dirInput.magnitude == 0)
+                {
                     TransitionToState(PlayerState.IDLE);
+                    animator.SetTrigger("LAND");
+                }
                 if (IsGrounded() && dirInput.magnitude > 0)
+                {
                     TransitionToState(PlayerState.JOGGING);
+                    animator.SetTrigger("LAND");
+                }
+
 
                 break;
             case PlayerState.SNEAKING:
@@ -262,13 +277,13 @@ public class PlayerSM : MonoBehaviour
         }
 
 
-        
+
 
     }
 
     private void MovementDirection()
     {
-        
+
         if (dirInput.magnitude > 0)
         {
             // CALCUL DE L'ANGLE QUE DOIT AVOIR LE PERSONNAGE
@@ -281,7 +296,7 @@ public class PlayerSM : MonoBehaviour
 
             // ON APPLIQUE LE RESULTAT AU TRANSFORM
             transform.eulerAngles = new Vector3(0, finalAngle, 0); // ON TOURNE LE PERSONNAGE
-            
+
             // ON RECUPERE LA DIRECTION DANS LAQUELLE DOIT BOUGER LE PERSONNAGE
             dirMove = Quaternion.Euler(0, angle, 0) * Vector3.forward; // ROTATION TO DIRECTION
 
@@ -292,9 +307,9 @@ public class PlayerSM : MonoBehaviour
 
             dirMove = Vector3.zero;
         }
-        
 
-            
+
+
     }
 
     void OnStateExit()
@@ -328,6 +343,8 @@ public class PlayerSM : MonoBehaviour
 
     void TransitionToState(PlayerState nextState)
     {
+        previousState = currentState;
+
         OnStateExit();
 
         currentState = nextState;
