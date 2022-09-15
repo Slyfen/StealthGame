@@ -99,7 +99,8 @@ public class EnemyAI : MonoBehaviour
     {
 
         // POUR PASSER D'UN WAYPOINT A UN AUTRE
-        if (agent.remainingDistance < .1f && !isWaiting)
+        //if (agent.remainingDistance < .1f && !isWaiting)
+        if (!agent.hasPath && !isWaiting)
         {
             isWaiting = true;
 
@@ -136,6 +137,12 @@ public class EnemyAI : MonoBehaviour
             
 
         }
+
+        if (agent.hasPath && isWaiting)
+            isWaiting = false;
+        
+
+
     }
 
 
@@ -146,6 +153,6 @@ public class EnemyAI : MonoBehaviour
 
         agent.SetDestination(waypoints[index].position);
         animator.SetTrigger("WALK");
-        isWaiting = false;
+        
     }
 }
